@@ -1,0 +1,62 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { AuthScreen } from "@/components/AuthScreen";
+import { AppShell } from "@/components/AppShell";
+import { EmptyState } from "@/components/EmptyState";
+import { supabase, supabaseEnvError } from "@/lib/supabaseClient";
+
+export default function Home() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setLoading(false);
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  if (supabaseEnvError) {
+    return (
+      <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950">
+        <div className="mx-auto max-w-lg">
+          <EmptyState
+            title="Configure o Supabase"
+            description={supabaseEnvError}
+            action="Crie um .env.local com NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY."
+          />
+        </div>
+      </main>
+    );
+  }
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-slate-700">
+        <div className="rounded-xl bg-white px-6 py-5 shadow-soft">Carregando sessão...</div>
+      </main>
+    );
+  }
+
+  if (!session) {
+    return <AuthScreen />;
+  }
+
+  return <AppShell session={session} />;
+}
